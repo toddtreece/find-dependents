@@ -1,0 +1,23 @@
+{
+  "name": "find-dependents",
+  "version": "1.0.0",
+  "description": "find dependent source files or tests",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "scripts": {
+    "test": "exit 0",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "author": "Todd Treece",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^13.7.1",
+    "@types/yargs": "^15.0.3",
+    "typescript": "^3.7.5"
+  },
+  "dependencies": {
+    "ripgrep-node": "^1.0.0",
+    "yargs": "^15.1.0"
+  }
+}
