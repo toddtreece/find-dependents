@@ -1,8 +1,10 @@
 import * as yargs from 'yargs';
+import { resolve } from 'path';
 
 export interface Args {
   json: boolean;
   file: string;
+  directory: string;
 }
 
 const builder = (yargs: yargs.Argv) => {
@@ -13,7 +15,19 @@ const builder = (yargs: yargs.Argv) => {
       type: 'string'
     })
     .options({
-      json: { type: 'boolean', default: false }
+      json: {
+        type: 'boolean',
+        default: false,
+        describe: 'json output'
+      },
+      directory: {
+        alias: 'dir',
+        normalize: true,
+        type: 'string',
+        default: process.cwd(),
+        coerce: resolve,
+        describe: 'directory to search'
+      }
     });
 };
 

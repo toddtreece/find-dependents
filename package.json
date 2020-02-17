@@ -17,7 +17,6 @@
     "typescript": "^3.7.5"
   },
   "dependencies": {
-    "ripgrep-node": "^1.0.0",
     "yargs": "^15.1.0"
   }
 }

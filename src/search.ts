@@ -1,6 +1,5 @@
-import { RipGrep } from 'ripgrep-node';
-import { getFileName } from './path';
-import { sep } from 'path';
+import { getFileName, pathSeparator } from './path';
+import { rg } from './ripgrep';
 
 export interface Match {
   search: string;
@@ -8,50 +7,51 @@ export interface Match {
   imported: string;
 }
 
-export const parseResult = (search: string) => (json: string): Match => {
-  const { path, lines } = JSON.parse(json.trim()).data;
-  return {
-    search,
-    file: path.text,
-    imported: lines.text.match(/['"](.*)['"]/)[1]
+export const buildParser = (search: string) => {
+  return function* parser(chunk: Buffer): Generator<Match> {
+    const chunks = chunk.toString().split('\n');
+    for (const json of chunks) {
+      if (!json.trim()) {
+        break;
+      }
+
+      const parsed = JSON.parse(json.trim());
+
+      if (parsed.type === 'match') {
+        const { path, lines } = parsed.data;
+        yield {
+          search,
+          file: path.text,
+          imported: lines.text.match(/['"](.*)['"]/)[1]
+        };
+      }
+    }
   };
 };
 
-const findIndexFolder = (searchDirectory: string, filePath: string): Match[] => {
+async function* findIndexFolder(searchDirectory: string, filePath: string): AsyncGenerator<Match> {
   const folderPath = filePath
-    .split(sep)
+    .split(pathSeparator)
     .slice(0, -1)
-    .join(sep);
+    .join(pathSeparator);
 
-  if (!folderPath) {
-    return [];
+  if (folderPath) {
+    yield* findDependents(searchDirectory, folderPath);
   }
+}
 
-  return findDependents(searchDirectory, folderPath);
-};
-
-export const findDependents = (searchDirectory: string, filePath: string): Match[] => {
+export async function* findDependents(searchDirectory: string, filePath: string): AsyncGenerator<Match> {
+  const parse = buildParser(filePath);
   const name = getFileName(filePath);
 
-  const pattern = `^[import|export].*from\\s['\\"](\\..*/${name})['\\"]`;
-  const rg = new RipGrep(pattern, searchDirectory);
+  const pattern = `^[import|export].*from\\s['"](\\..*/${name})['"]`;
+  const results = rg(pattern, searchDirectory);
 
-  let results: Match[] = [];
-
-  try {
-    results = rg
-      .json()
-      .run()
-      .asJson()
-      .map(parseResult(filePath));
-  } catch (err) {
-    results = [];
+  for await (const chunk of results) {
+    yield* parse(chunk);
   }
 
   if (name === 'index') {
-    const folderResults = findIndexFolder(searchDirectory, filePath);
-    return [...results, ...folderResults];
+    yield* findIndexFolder(searchDirectory, filePath);
   }
-
-  return results;
-};
+}

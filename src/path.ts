@@ -1,5 +1,7 @@
 import { dirname, resolve, basename, sep } from 'path';
 
+export const pathSeparator = sep;
+
 export const resolveFromFile = (from: string, path: string) => {
   return resolveFromDirectory(dirname(from), path);
 };
