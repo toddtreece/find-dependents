@@ -44,7 +44,7 @@ export async function* findDependents(searchDirectory: string, filePath: string)
   const parse = buildParser(filePath);
   const name = getFileName(filePath);
 
-  const pattern = `^[import|export].*from\\s['"](\\..*/${name})['"]`;
+  const pattern = `^[import|export].*from\\s['"]\\..*/${name}['"]`;
   const results = rg(pattern, searchDirectory);
 
   for await (const chunk of results) {

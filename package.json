@@ -1,12 +1,14 @@
 {
-  "name": "find-dependents",
+  "name": "rg-imports",
   "version": "1.0.0",
-  "description": "find dependent source files or tests",
+  "description": "recursively find dependent imports of a file using ripgrep",
   "main": "dist/index.js",
   "bin": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "test": "exit 0",
     "build": "tsc",
+    "prepublish": "tsc",
     "start": "node dist/index.js"
   },
   "author": "Todd Treece",

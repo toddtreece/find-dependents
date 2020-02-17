@@ -10,7 +10,7 @@ interface Accumulator {
   matches: Set<string>;
 }
 
-async function* find(acc: Accumulator): AsyncGenerator<string> {
+export async function* find(acc: Accumulator): AsyncGenerator<string> {
   const { directory, file } = acc;
 
   const matches = findDependents(directory, file);

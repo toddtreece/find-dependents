@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
-    "lib": ["ES2019"],
+    "lib": ["ES2018"],
+    "declaration": true,
     "module": "commonjs",
-    "target": "ES2019",
+    "target": "ES2018",
     "outDir": "dist",
     "rootDir": "src",
     "strict": true,
     "forceConsistentCasingInFileNames": true
   },
-  "exclude": ["test/**/*"]
+  "exclude": ["test", "dist", "node_modules"]
 }
