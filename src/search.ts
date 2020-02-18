@@ -8,23 +8,16 @@ export interface Match {
 }
 
 export const buildParser = (search: string) => {
-  return function* parser(chunk: Buffer): Generator<Match> {
-    const chunks = chunk.toString().split('\n');
-    for (const json of chunks) {
-      if (!json.trim()) {
-        break;
-      }
+  return function* parser(json: string): Generator<Match> {
+    const parsed = JSON.parse(json);
 
-      const parsed = JSON.parse(json.trim());
-
-      if (parsed.type === 'match') {
-        const { path, lines } = parsed.data;
-        yield {
-          search,
-          file: path.text,
-          imported: lines.text.match(/['"](.*)['"]/)[1]
-        };
-      }
+    if (parsed.type === 'match') {
+      const { path, lines } = parsed.data;
+      yield {
+        search,
+        file: path.text,
+        imported: lines.text.match(/['"](.*)['"]/)[1]
+      };
     }
   };
 };
@@ -47,8 +40,17 @@ export async function* findDependents(searchDirectory: string, filePath: string)
   const pattern = `^[import|export].*from\\s['"]\\..*/${name}['"]`;
   const results = rg(pattern, searchDirectory);
 
+  // TODO switch back to streaming parsing
+  let buffer = '';
   for await (const chunk of results) {
-    yield* parse(chunk);
+    buffer += chunk.toString();
+  }
+
+  for (const line of buffer.split('\n')) {
+    const json = line.trim();
+    if (json) {
+      yield* parse(json);
+    }
   }
 
   if (name === 'index') {
