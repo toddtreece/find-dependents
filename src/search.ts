@@ -1,43 +1,52 @@
-import { getFileName, pathSeparator } from './path';
+import { resolveFromDirectory, resolveFromFile, pathSeparator, getFileName } from './path';
 import { rg } from './ripgrep';
 
+export const PATH = Symbol('PATH');
+
 export interface Match {
-  search: string;
-  file: string;
-  imported: string;
+  path: string;
+  isFolder: boolean;
+  import: string;
 }
 
-export const buildParser = (search: string) => {
-  return function* parser(json: string): Generator<Match> {
-    const parsed = JSON.parse(json);
+export interface File {
+  kind: 'file';
+  [PATH]: string;
+  imports: Set<string>;
+}
 
-    if (parsed.type === 'match') {
-      const { path, lines } = parsed.data;
-      yield {
-        search,
-        file: path.text,
-        imported: lines.text.match(/['"](.*)['"]/)[1]
-      };
-    }
+export interface Folder {
+  kind: 'folder';
+  [PATH]: string;
+  imports: Set<string>;
+}
+
+export function buildMatch(searchDirectory: string, parsed: any): Match {
+  const { path, lines } = parsed.data;
+  const file = resolveFromDirectory(searchDirectory, path.text);
+  return {
+    path: file,
+    isFolder: false,
+    import: resolveFromFile(file, lines.text.match(/['"](.*)['"]/)[1])
   };
-};
+}
 
-async function* findIndexFolder(searchDirectory: string, filePath: string): AsyncGenerator<Match> {
-  const folderPath = filePath
+export function indexFolder(match: Match): Match {
+  // get the path to the parent folder
+  const folder = match.path
     .split(pathSeparator)
     .slice(0, -1)
     .join(pathSeparator);
 
-  if (folderPath) {
-    yield* findDependents(searchDirectory, folderPath);
-  }
+  return {
+    path: folder,
+    isFolder: true,
+    import: match.import
+  };
 }
 
-export async function* findDependents(searchDirectory: string, filePath: string): AsyncGenerator<Match> {
-  const parse = buildParser(filePath);
-  const name = getFileName(filePath);
-
-  const pattern = `^[import|export].*from\\s['"]\\..*/${name}['"]`;
+export async function* findImports(searchDirectory: string): AsyncGenerator<Match> {
+  const pattern = `^[import|export].*from\\s['"]\\..*['"]`;
   const results = rg(pattern, searchDirectory);
 
   // TODO switch back to streaming parsing
@@ -48,12 +57,53 @@ export async function* findDependents(searchDirectory: string, filePath: string)
 
   for (const line of buffer.split('\n')) {
     const json = line.trim();
-    if (json) {
-      yield* parse(json);
+    if (!json) {
+      continue;
+    }
+
+    const parsed = JSON.parse(json);
+    if (parsed.type !== 'match') {
+      continue;
+    }
+
+    const match = buildMatch(searchDirectory, parsed);
+    yield match;
+
+    if (getFileName(match.path) === 'index') {
+      yield indexFolder(match);
+    }
+  }
+}
+
+export async function getDependencyMap(searchDirectory: string) {
+  const imports = findImports(searchDirectory);
+  const map: Map<string, File | Folder> = new Map();
+
+  for await (const match of imports) {
+    const [fileName] = match.path.split('.');
+    const existing = map.get(fileName);
+
+    if (existing) {
+      existing.imports.add(match.import);
+      continue;
+    }
+
+    if (match.isFolder) {
+      const folder: Folder = {
+        kind: 'folder',
+        [PATH]: match.path,
+        imports: new Set([match.import])
+      };
+      map.set(fileName, folder);
+    } else {
+      const file: File = {
+        kind: 'file',
+        [PATH]: match.path,
+        imports: new Set([match.import])
+      };
+      map.set(fileName, file);
     }
   }
 
-  if (name === 'index') {
-    yield* findIndexFolder(searchDirectory, filePath);
-  }
+  return map;
 }

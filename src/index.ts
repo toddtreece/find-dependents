@@ -1,52 +1,59 @@
 #!/usr/bin/env node
 
 import { CLI, Args } from './cli';
-import { findDependents } from './search';
-import { resolveFromDirectory, resolveFromFile } from './path';
+import { getDependencyMap, File, Folder, PATH } from './search';
+import { resolveFromDirectory } from './path';
 
 interface Accumulator {
-  directory: string;
+  map: Map<string, File | Folder>;
   file: string;
   matches: Set<string>;
 }
 
-export async function* find(acc: Accumulator): AsyncGenerator<string> {
-  const { directory, file } = acc;
+export function* find(acc: Accumulator): IterableIterator<string> {
+  const [fileName] = acc.file.split('.');
+  const current = acc.map.get(fileName);
 
-  const matches = findDependents(directory, file);
+  if (!current) {
+    return;
+  }
 
-  for await (const match of matches) {
-    const [filePath] = resolveFromDirectory(directory, match.search).split('.');
-    const importedPath = resolveFromFile(match.file, match.imported);
-
-    if (filePath === importedPath && !acc.matches.has(match.file)) {
-      acc.matches.add(match.file);
-      acc.file = match.file;
-      yield match.file;
+  for (const [key, match] of acc.map) {
+    if (match.imports.has(fileName) && !acc.matches.has(match[PATH])) {
+      acc.matches.add(match[PATH]);
+      acc.file = match[PATH];
+      if (match.kind === 'file') {
+        yield match[PATH];
+      }
       yield* find(acc);
     }
   }
 }
 
-if (!module.parent) {
-  CLI(async (args: Args) => {
-    const files = [];
-    const iter = find({
-      directory: args.directory,
-      file: args.file,
-      matches: new Set([resolveFromDirectory(args.directory, args.file)])
-    });
+async function main(args: Args) {
+  const file = resolveFromDirectory(args.directory, args.file);
+  const map = await getDependencyMap(args.directory);
 
-    for await (const file of iter) {
-      if (args.json) {
-        files.push(file);
-      } else {
-        console.log(file);
-      }
-    }
-
-    if (args.json) {
-      console.log(JSON.stringify(files, null, 2));
-    }
+  const iter = find({
+    map,
+    file,
+    matches: new Set([file])
   });
+
+  const files = [];
+  for (const file of iter) {
+    if (args.json) {
+      files.push(file);
+    } else {
+      console.log(file);
+    }
+  }
+
+  if (args.json) {
+    console.log(JSON.stringify(files, null, 2));
+  }
+}
+
+if (!module.parent) {
+  CLI(main);
 }
