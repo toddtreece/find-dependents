@@ -1,6 +1,6 @@
 {
   "name": "rg-imports",
-  "version": "1.0.1",
+  "version": "2.0.0-alpha",
   "description": "recursively find dependent imports of a file using ripgrep",
   "main": "dist/index.js",
   "bin": "dist/index.js",
