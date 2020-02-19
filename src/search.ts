@@ -24,10 +24,11 @@ export interface Folder {
 export function buildMatch(searchDirectory: string, parsed: any): Match {
   const { path, lines } = parsed.data;
   const file = resolveFromDirectory(searchDirectory, path.text);
+  const [imprt] = resolveFromFile(file, lines.text.match(/['"](.*)['"]/)[1]).split('.');
   return {
     path: file,
     isFolder: false,
-    import: resolveFromFile(file, lines.text.match(/['"](.*)['"]/)[1])
+    import: imprt
   };
 }
 
